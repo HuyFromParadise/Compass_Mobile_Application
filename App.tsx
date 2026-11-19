@@ -26,23 +26,22 @@ export const App = () => {
   const lastHeadingRef = useRef<number>(-260);
 
   useEffect(() => {
-    NativeMagnetometer.startUpdating();
-
     const magnetometerModule =
       NativeModules.NativeMagnetometer || NativeMagnetometer;
+
     const eventEmitter = new NativeEventEmitter(magnetometerModule);
 
     const subscription = eventEmitter.addListener(
       'onMagnetometerData',
       (data: any) => {
-        const heading = Math.round(data.azimuth);
+        const heading = Math.round(((data.azimuth % 360) + 360) % 360);
+
         setAzimuth(heading);
 
-        // Smooth rotation across 0° <-> 360° boundary
         let currentTarget = -heading;
-        let prevTarget = lastHeadingRef.current;
+        const prevTarget = lastHeadingRef.current;
+        const diff = currentTarget - prevTarget;
 
-        let diff = currentTarget - prevTarget;
         if (diff > 180) {
           currentTarget -= 360;
         } else if (diff < -180) {
@@ -59,6 +58,8 @@ export const App = () => {
         }).start();
       },
     );
+
+    NativeMagnetometer.startUpdating();
 
     return () => {
       subscription.remove();
@@ -86,7 +87,7 @@ export const App = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F2F6FC" />
+      <StatusBar barStyle="auto"/>
 
       {/* Header */}
       <View style={styles.header}>
@@ -107,8 +108,9 @@ export const App = () => {
           <View style={styles.compassDisc}>
             {/* Rotating Degree Ticks & Numbers */}
             <Animated.View
-              style={[styles.rotatingDial, { transform: [{ rotate: spin }] }]}>
-              {TICKS.map((deg) => {
+              style={[styles.rotatingDial, { transform: [{ rotate: spin }] }]}
+            >
+              {TICKS.map(deg => {
                 const isCardinal = deg % 90 === 0;
                 const isMajor = deg % 30 === 0;
 
@@ -118,7 +120,8 @@ export const App = () => {
                     style={[
                       styles.tickWrapper,
                       { transform: [{ rotate: `${deg}deg` }] },
-                    ]}>
+                    ]}
+                  >
                     <View
                       style={[
                         styles.tickMark,
@@ -131,7 +134,8 @@ export const App = () => {
                         style={[
                           styles.degreeLabel,
                           isCardinal && styles.cardinalDegreeLabel,
-                        ]}>
+                        ]}
+                      >
                         {deg}°
                       </Text>
                     )}
@@ -147,12 +151,14 @@ export const App = () => {
                 style={[
                   styles.dotOrbit,
                   { transform: [{ rotate: `${azimuth}deg` }] },
-                ]}>
+                ]}
+              >
                 <View style={styles.orangeDot} />
               </View>
 
               {/* Center Fixed Readout Hub */}
               <View style={styles.centerHub}>
+                <View style={styles.arrowHub} />
                 <View style={styles.degreeRow}>
                   <Text style={styles.headingValue}>{azimuth}</Text>
                   <Text style={styles.degreeSymbol}>°</Text>
@@ -351,6 +357,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 10,
     elevation: 6,
+  },
+  arrowHub: {
+    position: 'absolute',
+    top: -11, // Sits right on top of the 3px border
+    width: 0,
+    height: 0,
+    backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 8,
+    borderRightWidth: 8,
+    borderBottomWidth: 11,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#F3703A',
   },
   degreeRow: {
     flexDirection: 'row',
